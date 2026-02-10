@@ -1,0 +1,33 @@
+/// <reference types="vite/client" />
+
+type ScraperStartOptions = {
+  topN?: number
+  trancoDate?: string
+  trackerRadarIndex?: string
+  outDir?: string
+  artifactsDir?: string
+  runId?: string
+  cruxFilter?: boolean
+  cruxApiKey?: string
+  excludeSameEntity?: boolean
+}
+
+declare global {
+  interface Window {
+    scraper?: {
+      startRun: (options: ScraperStartOptions) => Promise<{ ok: boolean; error?: string; paths?: Record<string, string> }>
+      stopRun: () => Promise<{ ok: boolean; error?: string }>
+      getPaths: (outDir?: string) => Promise<Record<string, string>>
+      readSummary: (path?: string) => Promise<{ ok: boolean; data?: any; error?: string; path?: string }>
+      readState: (path?: string) => Promise<{ ok: boolean; data?: any; error?: string; path?: string }>
+      readExplorer: (path?: string, limit?: number) => Promise<{ ok: boolean; data?: any; error?: string; path?: string }>
+      clearResults: (options?: { includeArtifacts?: boolean; outDir?: string }) => Promise<{ ok: boolean; error?: string; removed?: string[]; errors?: string[] }>
+      onEvent: (callback: (event: any) => void) => void
+      onLog: (callback: (event: any) => void) => void
+      onError: (callback: (event: any) => void) => void
+      onExit: (callback: (event: any) => void) => void
+    }
+  }
+}
+
+export {}

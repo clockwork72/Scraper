@@ -1,0 +1,95 @@
+import { NavId } from '../../types'
+
+type SidebarProps = {
+  activeNav: NavId
+  onSelect: (id: NavId) => void
+}
+
+const navItems: { id: NavId; label: string; icon: JSX.Element }[] = [
+  {
+    id: 'launcher',
+    label: 'Search',
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <circle cx="11" cy="11" r="6" />
+        <path d="M16 16l4 4" />
+      </svg>
+    ),
+  },
+  {
+    id: 'results',
+    label: 'Results',
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <path d="M5 6h14" />
+        <path d="M5 12h14" />
+        <path d="M5 18h10" />
+      </svg>
+    ),
+  },
+  {
+    id: 'explorer',
+    label: 'Explorer',
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <rect x="4" y="4" width="7" height="7" rx="1.5" />
+        <rect x="13" y="4" width="7" height="7" rx="1.5" />
+        <rect x="4" y="13" width="7" height="7" rx="1.5" />
+        <rect x="13" y="13" width="7" height="7" rx="1.5" />
+      </svg>
+    ),
+  },
+  {
+    id: 'analytics',
+    label: 'Chart',
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <path d="M5 19V9" />
+        <path d="M11 19V5" />
+        <path d="M17 19v-7" />
+      </svg>
+    ),
+  },
+  {
+    id: 'database',
+    label: 'Database',
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <ellipse cx="12" cy="6" rx="7" ry="3" />
+        <path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" />
+        <path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" />
+      </svg>
+    ),
+  },
+  {
+    id: 'settings',
+    label: 'Settings',
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" />
+        <path d="M19.5 12a7.4 7.4 0 0 0-.1-1.3l2-1.6-2-3.5-2.4 1a7.8 7.8 0 0 0-2.2-1.3l-.4-2.6H9.6l-.4 2.6a7.8 7.8 0 0 0-2.2 1.3l-2.4-1-2 3.5 2 1.6a7.4 7.4 0 0 0-.1 1.3 7.4 7.4 0 0 0 .1 1.3l-2 1.6 2 3.5 2.4-1a7.8 7.8 0 0 0 2.2 1.3l.4 2.6h4.8l.4-2.6a7.8 7.8 0 0 0 2.2-1.3l2.4 1 2-3.5-2-1.6c.1-.4.1-.9.1-1.3Z" />
+      </svg>
+    ),
+  },
+]
+
+export function Sidebar({ activeNav, onSelect }: SidebarProps) {
+  return (
+    <aside className="rail fixed left-0 top-0 flex h-screen w-[72px] flex-col items-center gap-4 py-6">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--border-soft)]" />
+      <nav className="flex flex-1 flex-col items-center gap-3">
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            className={`rail-btn focusable ${activeNav === item.id ? 'active' : ''}`}
+            aria-label={item.label}
+            onClick={() => onSelect(item.id)}
+          >
+            {item.icon}
+          </button>
+        ))}
+      </nav>
+      <div className="text-[10px] text-[var(--muted-text)]">v0.1</div>
+    </aside>
+  )
+}
