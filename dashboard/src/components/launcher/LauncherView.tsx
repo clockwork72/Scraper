@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { FlowChartModal } from './FlowChartModal'
 
 const logLines = [
  ''
@@ -60,6 +61,7 @@ export function LauncherView({
   currentSite,
 }: LauncherViewProps) {
   const logRef = useRef<HTMLDivElement | null>(null)
+  const [showFlow, setShowFlow] = useState(false)
   const visibleLogs = useMemo(() => {
     if (logs && logs.length > 0) return logs.slice(-120)
     if (!hasRun) return []
@@ -84,12 +86,20 @@ export function LauncherView({
                 Choose how many sites to crawl. Press <span className="kbd">Enter</span> to start.
               </p>
             </div>
-            <button
-              className="focusable rounded-full bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white"
-              onClick={onStart}
-            >
-              Start run
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                className="focusable rounded-full border border-[var(--border-soft)] px-4 py-2 text-xs"
+                onClick={() => setShowFlow(true)}
+              >
+                Flow chart
+              </button>
+              <button
+                className="focusable rounded-full bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white"
+                onClick={onStart}
+              >
+                Start run
+              </button>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted-text)]">
             <button
@@ -172,6 +182,23 @@ export function LauncherView({
           </div>
         </div>
       </section>
+
+      <FlowChartModal
+        open={showFlow}
+        onClose={() => setShowFlow(false)}
+        topN={topN}
+        onTopNChange={onTopNChange}
+        useCrux={useCrux}
+        onToggleCrux={onToggleCrux}
+        cruxApiKey={cruxApiKey}
+        onCruxKeyChange={onCruxKeyChange}
+        mappingMode={mappingMode}
+        onMappingModeChange={onMappingModeChange}
+        excludeSameEntity={excludeSameEntity}
+        onToggleExcludeSameEntity={onToggleExcludeSameEntity}
+        onStart={onStart}
+        running={running}
+      />
 
       <section
         className={`overflow-hidden transition-all duration-700 ${

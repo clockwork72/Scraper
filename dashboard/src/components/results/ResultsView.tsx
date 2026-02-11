@@ -73,6 +73,17 @@ export function ResultsView({
               : 'Tracker Radar'
   const radarMappedCount = mapping?.radar_mapped ?? null
   const trackerdbMappedCount = mapping?.trackerdb_mapped ?? null
+  let mappingRadar = radarMappedCount
+  let mappingDb = trackerdbMappedCount
+  if (mappingRadar === null && mappingDb === null) {
+    if (mappingLabel === 'Tracker Radar') mappingRadar = radarMapped
+    if (mappingLabel === 'TrackerDB') mappingDb = radarMapped
+  }
+  const mappingTotal = (mappingRadar ?? 0) + (mappingDb ?? 0)
+  const mappingUnmapped = mapping?.unmapped ?? Math.max(0, thirdPartyDetected - mappingTotal)
+  const radarPct = thirdPartyDetected ? Math.round(((mappingRadar ?? 0) / thirdPartyDetected) * 100) : 0
+  const trackerdbPct = thirdPartyDetected ? Math.round(((mappingDb ?? 0) / thirdPartyDetected) * 100) : 0
+  const unmappedPct = Math.max(0, 100 - radarPct - trackerdbPct)
   const postCruxSites =
     typeof postCruxCount === 'number' ? postCruxCount : typeof summary?.total_sites === 'number' ? summary.total_sites : null
   const targetSites =
@@ -266,27 +277,59 @@ export function ResultsView({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted-text)]">Coverage</p>
-            <h3 className="text-lg font-semibold">Tracker Radar mapping</h3>
+            <h3 className="text-lg font-semibold">Mapping coverage</h3>
+            <p className="text-xs text-[var(--muted-text)]">How third‑party services were resolved by mapping source.</p>
           </div>
           <span className="text-xs text-[var(--muted-text)]">
-            mapped {metrics.mappedRatio}% • unmapped {metrics.unmappedRatio}%
+            mapped {Math.max(0, 100 - unmappedPct)}% • unmapped {unmappedPct}%
           </span>
         </div>
         <div className="mt-4 grid gap-6 lg:grid-cols-[220px_1fr]">
           <div className="flex flex-col items-center justify-center gap-3">
-            <div
-              className="flex h-44 w-44 items-center justify-center rounded-full"
-              style={{
-                background: `conic-gradient(var(--color-primary) ${metrics.mappedRatio}%, var(--color-warn) ${
-                  metrics.mappedRatio
-                }% ${metrics.mappedRatio + metrics.unmappedRatio}%, var(--border-soft) ${
-                  metrics.mappedRatio + metrics.unmappedRatio
-                }% 100%)`,
-              }}
-            >
-              <div className="flex h-28 w-28 flex-col items-center justify-center rounded-full bg-[var(--color-surface)] text-center">
-                <span className="text-2xl font-semibold">{mappedRatio}%</span>
-                <span className="text-xs text-[var(--muted-text)]">mapped</span>
+            <div className="w-full rounded-2xl border border-[var(--border-soft)] bg-black/20 p-4">
+              <div className="flex items-center justify-between text-xs text-[var(--muted-text)]">
+                <span>Mapping mode</span>
+                <span>{mappingLabel}</span>
+              </div>
+              <div className="mt-4 flex items-end justify-between">
+                <div>
+                  <div className="text-3xl font-semibold text-[var(--color-text)]">{Math.max(0, 100 - unmappedPct)}%</div>
+                  <div className="text-xs text-[var(--muted-text)]">mapped coverage</div>
+                </div>
+                <div className="text-xs text-[var(--muted-text)]">{thirdPartyDetected.toLocaleString()} total services</div>
+              </div>
+              <div className="mt-3 h-3 overflow-hidden rounded-full bg-black/30">
+                <div className="flex h-full w-full">
+                  <div className="h-full bg-[var(--color-primary)]" style={{ width: `${radarPct}%` }} />
+                  <div className="h-full bg-[var(--color-success)]" style={{ width: `${trackerdbPct}%` }} />
+                  <div className="h-full bg-[var(--border-soft)]" style={{ width: `${unmappedPct}%` }} />
+                </div>
+              </div>
+              <div className="mt-3 space-y-2 text-xs text-[var(--muted-text)]">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-[var(--color-primary)]" />
+                    Tracker Radar
+                  </span>
+                  <span>{(mappingRadar ?? 0).toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-[var(--color-success)]" />
+                    TrackerDB
+                  </span>
+                  <span>{(mappingDb ?? 0).toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-[var(--border-soft)]" />
+                    Unmapped
+                  </span>
+                  <span>{mappingUnmapped.toLocaleString()}</span>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <InfoTip text="The bar shows what portion of detected third‑party services were matched to Tracker Radar, TrackerDB, or left unmapped." />
+                </div>
               </div>
             </div>
             <div className="text-xs text-[var(--muted-text)]">
