@@ -41,6 +41,7 @@ function App() {
   const [cruxApiKey, setCruxApiKey] = useState('')
   const [currentSite, setCurrentSite] = useState<string>('')
   const [excludeSameEntity, setExcludeSameEntity] = useState(false)
+  const [mappingMode, setMappingMode] = useState<'radar' | 'trackerdb' | 'mixed'>('radar')
   const [outDir, setOutDir] = useState('outputs')
   const [runsRoot] = useState('outputs')
   const [runRecords, setRunRecords] = useState<any[]>([])
@@ -138,6 +139,8 @@ function App() {
     if (!topN || Number(topN) <= 0) return
     const runId = createRunId()
     const runOutDir = `${runsRoot}/output_${runId}`
+    const trackerRadarIndex = mappingMode === 'trackerdb' ? undefined : 'tracker_radar_index.json'
+    const trackerDbIndex = mappingMode === 'radar' ? undefined : 'trackerdb_index.json'
     setErrorMessage(null)
     setLogs([])
     setSummaryData(null)
@@ -146,7 +149,8 @@ function App() {
     if (window.scraper) {
       const res = await window.scraper.startRun({
         topN: Number(topN),
-        trackerRadarIndex: 'tracker_radar_index.json',
+        trackerRadarIndex,
+        trackerDbIndex,
         outDir: runOutDir,
         artifactsDir: `${runOutDir}/artifacts`,
         runId,
@@ -344,6 +348,12 @@ function App() {
     setLogs((prev) => [...prev, 'Stop signal sent'].slice(-50))
   }
 
+  const openLogWindow = async () => {
+    if (!window.scraper) return
+    const content = logs.length ? logs.join('\n') : 'No logs yet.'
+    await window.scraper.openLogWindow(content, 'Run logs')
+  }
+
   const pageTitle = {
     launcher: 'Scraper Launcher',
     results: 'Results',
@@ -389,7 +399,10 @@ function App() {
             onCruxKeyChange={setCruxApiKey}
             excludeSameEntity={excludeSameEntity}
             onToggleExcludeSameEntity={setExcludeSameEntity}
+            mappingMode={mappingMode}
+            onMappingModeChange={setMappingMode}
             postCruxCount={postCruxCount}
+            onOpenLogWindow={openLogWindow}
           />
         )}
         {activeNav === 'results' && (
@@ -401,6 +414,7 @@ function App() {
             summary={summaryData}
             useCrux={useCrux}
             postCruxCount={postCruxCount}
+            mappingMode={mappingMode}
           />
         )}
         {activeNav === 'explorer' && (

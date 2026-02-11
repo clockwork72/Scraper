@@ -29,6 +29,7 @@ electron.contextBridge.exposeInMainWorld("scraper", {
   deleteOutput: (outDir) => electron.ipcRenderer.invoke("scraper:delete-output", outDir),
   getFolderSize: (outDir) => electron.ipcRenderer.invoke("scraper:folder-size", outDir),
   listRuns: (baseOutDir) => electron.ipcRenderer.invoke("scraper:list-runs", baseOutDir),
+  openLogWindow: (content, title) => electron.ipcRenderer.invoke("scraper:open-log-window", { content, title }),
   openPolicyWindow: (url) => electron.ipcRenderer.invoke("scraper:open-policy-window", url),
   onEvent: (callback) => electron.ipcRenderer.on("scraper:event", (_evt, data) => callback(data)),
   onLog: (callback) => electron.ipcRenderer.on("scraper:log", (_evt, data) => callback(data)),

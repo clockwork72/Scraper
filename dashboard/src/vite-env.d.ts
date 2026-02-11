@@ -4,6 +4,7 @@ type ScraperStartOptions = {
   topN?: number
   trancoDate?: string
   trackerRadarIndex?: string
+  trackerDbIndex?: string
   outDir?: string
   artifactsDir?: string
   runId?: string
@@ -25,6 +26,7 @@ declare global {
       deleteOutput: (outDir?: string) => Promise<{ ok: boolean; error?: string; path?: string }>
       getFolderSize: (outDir?: string) => Promise<{ ok: boolean; error?: string; bytes?: number; path?: string }>
       listRuns: (baseOutDir?: string) => Promise<{ ok: boolean; error?: string; root?: string; runs?: any[] }>
+      openLogWindow: (content: string, title?: string) => Promise<{ ok: boolean; error?: string }>
       openPolicyWindow: (url: string) => Promise<{ ok: boolean; error?: string }>
       onEvent: (callback: (event: any) => void) => void
       onLog: (callback: (event: any) => void) => void

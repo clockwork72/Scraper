@@ -23,6 +23,7 @@ export function ExplorerView({ hasRun, progress, sites }: ExplorerViewProps) {
   const [view, setView] = useState<'sites' | 'thirdParties' | 'viewer'>('sites')
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | ExplorerSite['status']>('all')
+  const [minThirdParties, setMinThirdParties] = useState('')
   const [history, setHistory] = useState<ViewerEntry[]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
   const [lastNonViewer, setLastNonViewer] = useState<'sites' | 'thirdParties'>('sites')
@@ -70,12 +71,18 @@ export function ExplorerView({ hasRun, progress, sites }: ExplorerViewProps) {
     const count = Math.round(sourceSites.length * fraction)
     const slice = sourceSites.slice(0, count)
     const normalizedQuery = query.trim().toLowerCase()
+    const minThirdPartyCount = Number(minThirdParties)
     return slice.filter((site) => {
       if (statusFilter !== 'all' && site.status !== statusFilter) return false
+      const siteThirdParties =
+        (site as any).thirdParties?.length ?? (site as any).third_parties?.length ?? 0
+      if (Number.isFinite(minThirdPartyCount) && minThirdParties !== '' && siteThirdParties < minThirdPartyCount) {
+        return false
+      }
       if (!normalizedQuery) return true
       return site.site.toLowerCase().includes(normalizedQuery)
     })
-  }, [progress, query, statusFilter, sites])
+  }, [progress, query, statusFilter, sites, minThirdParties])
 
   const selectedPolicyUrl =
     (selectedSite as any)?.policyUrl ?? (selectedSite as any)?.policy_url ?? selectedSite?.policyUrl ?? null
@@ -156,6 +163,14 @@ export function ExplorerView({ hasRun, progress, sites }: ExplorerViewProps) {
             placeholder="Search by site (e.g. apple.com)"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+          />
+          <input
+            type="number"
+            min={0}
+            className="focusable w-40 rounded-xl border border-[var(--border-soft)] bg-black/20 px-3 py-2 text-sm text-white"
+            placeholder="Min 3P"
+            value={minThirdParties}
+            onChange={(event) => setMinThirdParties(event.target.value)}
           />
           <select
             className="focusable rounded-xl border border-[var(--border-soft)] bg-black/20 px-3 py-2 text-sm text-white"

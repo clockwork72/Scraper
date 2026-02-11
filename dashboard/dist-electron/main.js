@@ -15,6 +15,7 @@ const REPO_ROOT = path.resolve(process.env.APP_ROOT, "..");
 let win;
 let scraperProcess = null;
 const policyWindows = /* @__PURE__ */ new Set();
+const logWindows = /* @__PURE__ */ new Set();
 function sendToRenderer(channel, payload) {
   if (win && !win.isDestroyed()) {
     win.webContents.send(channel, payload);
@@ -99,6 +100,53 @@ function createPolicyWindow(url) {
     policyWindows.delete(policyWin);
   });
   return policyWin;
+}
+function escapeHtml(value) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function createLogWindow(content, title) {
+  const logWin = new BrowserWindow({
+    width: 1100,
+    height: 800,
+    title: title || "Run logs",
+    backgroundColor: "#0B0E14",
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  });
+  logWin.setMenuBarVisibility(false);
+  const safe = escapeHtml(content || "");
+  const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title || "Run logs")}</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; background: #0B0E14; color: #E6EDF3; }
+      header { padding: 16px 20px; border-bottom: 1px solid #1f2630; background: #0F141C; }
+      h1 { font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase; margin: 0 0 6px; color: #b9c2cc; }
+      .sub { font-size: 12px; color: #b9c2cc; }
+      pre { margin: 0; padding: 16px 20px; white-space: pre-wrap; word-break: break-word; line-height: 1.5; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Run logs</h1>
+      <div class="sub">Full log output</div>
+    </header>
+    <pre>${safe}</pre>
+  </body>
+</html>`;
+  logWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  logWindows.add(logWin);
+  logWin.on("closed", () => {
+    logWindows.delete(logWin);
+  });
+  return logWin;
 }
 ipcMain.handle("scraper:get-paths", (_event, outDir) => {
   return defaultPaths(outDir);
@@ -243,6 +291,14 @@ ipcMain.handle("scraper:start", async (_event, options = {}) => {
       sendToRenderer("scraper:error", { message: "tracker_radar_index_not_found", path: trackerPath });
     }
   }
+  if (options.trackerDbIndex) {
+    const trackerDbPath = path.resolve(REPO_ROOT, options.trackerDbIndex);
+    if (fs.existsSync(trackerDbPath)) {
+      args.push("--trackerdb-index", trackerDbPath);
+    } else {
+      sendToRenderer("scraper:error", { message: "trackerdb_index_not_found", path: trackerDbPath });
+    }
+  }
   if (options.runId) {
     args.push("--run-id", options.runId);
   }
@@ -299,6 +355,16 @@ ipcMain.handle("scraper:stop", async () => {
   if (!scraperProcess) return { ok: false, error: "not_running" };
   scraperProcess.kill();
   return { ok: true };
+});
+ipcMain.handle("scraper:open-log-window", async (_event, payload) => {
+  try {
+    const content = (payload == null ? void 0 : payload.content) ?? "";
+    const title = payload == null ? void 0 : payload.title;
+    createLogWindow(content, title);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: String(error) };
+  }
 });
 ipcMain.handle("scraper:open-policy-window", async (_event, url) => {
   if (!url || typeof url !== "string") {

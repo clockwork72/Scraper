@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('scraper', {
   deleteOutput: (outDir?: string) => ipcRenderer.invoke('scraper:delete-output', outDir),
   getFolderSize: (outDir?: string) => ipcRenderer.invoke('scraper:folder-size', outDir),
   listRuns: (baseOutDir?: string) => ipcRenderer.invoke('scraper:list-runs', baseOutDir),
+  openLogWindow: (content: string, title?: string) => ipcRenderer.invoke('scraper:open-log-window', { content, title }),
   openPolicyWindow: (url: string) => ipcRenderer.invoke('scraper:open-policy-window', url),
   onEvent: (callback: (event: any) => void) => ipcRenderer.on('scraper:event', (_evt, data) => callback(data)),
   onLog: (callback: (event: any) => void) => ipcRenderer.on('scraper:log', (_evt, data) => callback(data)),

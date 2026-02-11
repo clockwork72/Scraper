@@ -9,6 +9,7 @@ type ResultsViewProps = {
   summary?: any
   useCrux?: boolean
   postCruxCount?: number | null
+  mappingMode?: 'radar' | 'trackerdb' | 'mixed'
 }
 
 export function ResultsView({
@@ -19,6 +20,7 @@ export function ResultsView({
   summary,
   useCrux,
   postCruxCount,
+  mappingMode,
 }: ResultsViewProps) {
   if (!hasRun) {
     return (
@@ -56,15 +58,91 @@ export function ResultsView({
     const prev = entity.prevalence_max ?? entity.prevalence_avg ?? entity.prevalence ?? 0
     return Math.max(max, prev)
   }, 0.0001)
+  const mapping = summary?.mapping || {}
+  const mappingLabel =
+    mapping.mode === 'trackerdb'
+      ? 'TrackerDB'
+      : mapping.mode === 'mixed'
+        ? 'Mixed'
+        : mapping.mode === 'radar'
+          ? 'Tracker Radar'
+          : mappingMode === 'trackerdb'
+            ? 'TrackerDB'
+            : mappingMode === 'mixed'
+              ? 'Mixed'
+              : 'Tracker Radar'
+  const radarMappedCount = mapping?.radar_mapped ?? null
+  const trackerdbMappedCount = mapping?.trackerdb_mapped ?? null
   const postCruxSites =
     typeof postCruxCount === 'number' ? postCruxCount : typeof summary?.total_sites === 'number' ? summary.total_sites : null
-  const overviewStats = [
-    { label: 'Sites processed', value: summary?.processed_sites ?? metrics.totalSitesProcessed },
-    ...(useCrux ? [{ label: 'Post‑CrUX sites', value: postCruxSites }] : []),
-    { label: 'Success rate', value: `${summary?.success_rate ?? metrics.successRate}%` },
-    { label: '3P services detected', value: thirdPartyDetected },
-    { label: '3P policies found', value: thirdPartyPoliciesFound },
-    { label: 'Mapped in Tracker Radar', value: radarMapped },
+  const targetSites =
+    typeof summary?.total_sites === 'number' ? summary.total_sites : Number(topN) || metrics.totalSitesProcessed
+
+  const InfoTip = ({ text }: { text: string }) => (
+    <span className="relative ml-2 inline-flex items-center group">
+      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-[var(--border-soft)] text-[10px] text-[var(--muted-text)]">
+        i
+      </span>
+      <span className="pointer-events-none absolute left-1/2 top-[1.4rem] z-20 w-56 -translate-x-1/2 rounded-lg border border-[var(--border-soft)] bg-[var(--color-surface)] px-2 py-1 text-[10px] text-[var(--color-text)] opacity-0 shadow transition group-hover:opacity-100">
+        {text}
+      </span>
+    </span>
+  )
+
+  const siteStats = [
+    {
+      label: 'Sites processed',
+      value: summary?.processed_sites ?? metrics.totalSitesProcessed,
+      info: 'Count of sites that finished processing (any final status).',
+    },
+    {
+      label: 'Target sites',
+      value: targetSites,
+      info: 'Total sites scheduled for this run after filters (Tranco/CrUX).',
+    },
+    {
+      label: 'Success rate',
+      value: `${summary?.success_rate ?? metrics.successRate}%`,
+      info: 'Percent of processed sites where a first-party privacy policy was found.',
+    },
+    {
+      label: 'Policy not found',
+      value: statusPolicyNotFound,
+      info: 'Sites crawled successfully but no privacy policy link was detected.',
+    },
+    {
+      label: 'Non-browsable',
+      value: statusNonBrowsable,
+      info: 'Sites classified as non-browsable based on error or placeholder signals.',
+    },
+  ]
+
+  const thirdPartyStats = [
+    {
+      label: '3P services detected',
+      value: thirdPartyDetected,
+      info: 'Distinct third-party eTLD+1 domains observed during page loads.',
+    },
+    {
+      label: '3P policies found',
+      value: thirdPartyPoliciesFound,
+      info: 'Third-party services that have a privacy policy URL in the mapping index.',
+    },
+    {
+      label: 'Mapped in Tracker Radar',
+      value: radarMapped,
+      info: 'Third-party services matched to Tracker Radar.',
+    },
+    {
+      label: 'Unmapped services',
+      value: radarUnmapped,
+      info: 'Third-party services with no mapping record in the active index.',
+    },
+    {
+      label: 'No policy URL',
+      value: radarNoPolicy,
+      info: 'Mapped services that do not provide a policy URL in the index.',
+    },
   ]
 
   return (
@@ -81,25 +159,55 @@ export function ResultsView({
           <div className="flex flex-wrap items-center gap-2">
             <span className="theme-chip rounded-full px-3 py-1 text-xs">Tranco Top {topN}</span>
             {useCrux && <span className="theme-chip rounded-full px-3 py-1 text-xs">CrUX filter on</span>}
+            <span className="theme-chip rounded-full px-3 py-1 text-xs">Mapping: {mappingLabel}</span>
+            {mapping.mode === 'mixed' && (
+              <span className="theme-chip rounded-full px-3 py-1 text-xs">
+                Radar {radarMappedCount ?? '—'} • TrackerDB {trackerdbMappedCount ?? '—'}
+              </span>
+            )}
           </div>
         </div>
-        <div
-          className={`mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 ${
-            useCrux ? 'xl:grid-cols-6' : 'xl:grid-cols-5'
-          }`}
-        >
-          {overviewStats.map((stat) => (
-            <div key={stat.label} className="rounded-xl border border-[var(--border-soft)] bg-black/20 px-4 py-3">
-              <p className="text-xs text-[var(--muted-text)]">{stat.label}</p>
-              <p className="text-lg font-semibold">
-                {stat.value === null || stat.value === undefined
-                  ? '—'
-                  : typeof stat.value === 'number'
-                    ? stat.value.toLocaleString()
-                    : stat.value}
-              </p>
+        <div className="mt-5 grid gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl border border-[var(--border-soft)] bg-black/20 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted-text)]">Sites</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {siteStats.map((stat) => (
+                <div key={stat.label} className="rounded-xl border border-[var(--border-soft)] bg-black/10 px-4 py-3">
+                  <p className="flex items-center text-xs text-[var(--muted-text)]">
+                    {stat.label}
+                    <InfoTip text={stat.info} />
+                  </p>
+                  <p className="text-lg font-semibold">
+                    {stat.value === null || stat.value === undefined
+                      ? '—'
+                      : typeof stat.value === 'number'
+                        ? stat.value.toLocaleString()
+                        : stat.value}
+                  </p>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+          <div className="rounded-2xl border border-[var(--border-soft)] bg-black/20 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted-text)]">Third‑party services</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {thirdPartyStats.map((stat) => (
+                <div key={stat.label} className="rounded-xl border border-[var(--border-soft)] bg-black/10 px-4 py-3">
+                  <p className="flex items-center text-xs text-[var(--muted-text)]">
+                    {stat.label}
+                    <InfoTip text={stat.info} />
+                  </p>
+                  <p className="text-lg font-semibold">
+                    {stat.value === null || stat.value === undefined
+                      ? '—'
+                      : typeof stat.value === 'number'
+                        ? stat.value.toLocaleString()
+                        : stat.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-4 text-xs text-[var(--muted-text)]">
           <span className="theme-chip rounded-full px-3 py-1">ok {statusOk.toLocaleString()}</span>
@@ -131,6 +239,25 @@ export function ResultsView({
               className="h-full bg-[var(--border-soft)]"
               style={{ width: `${(statusHomeFailed / statusTotal) * 100}%` }}
             />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--muted-text)]">
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[var(--color-success)]" />
+              ok
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[var(--color-warn)]" />
+              policy not found
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[var(--color-danger)]" />
+              non-browsable
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[var(--border-soft)]" />
+              home failed
+            </span>
+            <InfoTip text="The bar shows the share of sites in each final status; colors match the legend." />
           </div>
         </div>
       </section>

@@ -26,7 +26,10 @@ type LauncherViewProps = {
   onCruxKeyChange?: (value: string) => void
   excludeSameEntity?: boolean
   onToggleExcludeSameEntity?: (next: boolean) => void
+  mappingMode?: 'radar' | 'trackerdb' | 'mixed'
+  onMappingModeChange?: (mode: 'radar' | 'trackerdb' | 'mixed') => void
   postCruxCount?: number | null
+  onOpenLogWindow?: () => void
 }
 
 export function LauncherView({
@@ -49,7 +52,10 @@ export function LauncherView({
   onCruxKeyChange,
   excludeSameEntity,
   onToggleExcludeSameEntity,
+  mappingMode = 'radar',
+  onMappingModeChange,
   postCruxCount,
+  onOpenLogWindow,
   steps,
   currentSite,
 }: LauncherViewProps) {
@@ -111,6 +117,26 @@ export function LauncherView({
               placeholder="1000"
             />
             <span className="text-xs text-[var(--muted-text)]">sites from Tranco list</span>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted-text)]">
+              <span className="text-xs uppercase tracking-[0.2em] text-[var(--muted-text)]">Mapping</span>
+              {[
+                { id: 'radar', label: 'Tracker Radar' },
+                { id: 'trackerdb', label: 'TrackerDB' },
+                { id: 'mixed', label: 'Mixed' },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  className={`focusable rounded-full border px-3 py-1 text-xs ${
+                    mappingMode === opt.id
+                      ? 'border-[var(--color-danger)] text-white'
+                      : 'border-[var(--border-soft)] text-[var(--muted-text)]'
+                  }`}
+                  onClick={() => onMappingModeChange?.(opt.id as 'radar' | 'trackerdb' | 'mixed')}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
             <button
               className={`focusable rounded-full border px-3 py-1 text-xs ${
                 useCrux ? 'border-[var(--color-danger)] text-white' : 'border-[var(--border-soft)] text-[var(--muted-text)]'
@@ -250,7 +276,15 @@ export function LauncherView({
               <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted-text)]">Logs</p>
               <h3 className="text-lg font-semibold">Run details</h3>
             </div>
-            <span className="text-xs text-[var(--muted-text)]">tail -f</span>
+            <div className="flex items-center gap-2 text-xs text-[var(--muted-text)]">
+              <button
+                className="focusable rounded-full border border-[var(--border-soft)] px-3 py-1 text-xs"
+                onClick={onOpenLogWindow}
+              >
+                Open full log
+              </button>
+              <span>tail -f</span>
+            </div>
           </div>
           <div className="mt-4 space-y-2 text-xs">
             {errorMessage && (
@@ -260,7 +294,8 @@ export function LauncherView({
             )}
             <div
               ref={logRef}
-              className="mono max-h-[420px] overflow-y-auto rounded-xl border border-[var(--border-soft)] bg-black/30 p-3 text-[11px] leading-relaxed text-[var(--muted-text)]"
+              className="mono max-h-[420px] overflow-y-auto rounded-xl border border-[var(--border-soft)] bg-black/30 p-3 pb-6 text-[11px] leading-relaxed text-[var(--muted-text)]"
+              style={{ scrollPaddingBottom: '1.5rem' }}
             >
               {visibleLogs.length === 0 && <div>Launch a run to see logs.</div>}
               {visibleLogs.map((line, index) => (

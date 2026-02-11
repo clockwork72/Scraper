@@ -30,11 +30,13 @@ const REPO_ROOT = path.resolve(process.env.APP_ROOT, '..')
 let win: BrowserWindow | null
 let scraperProcess: ChildProcessWithoutNullStreams | null = null
 const policyWindows = new Set<BrowserWindow>()
+const logWindows = new Set<BrowserWindow>()
 
 type ScraperStartOptions = {
   topN?: number
   trancoDate?: string
   trackerRadarIndex?: string
+  trackerDbIndex?: string
   outDir?: string
   artifactsDir?: string
   runId?: string
@@ -137,6 +139,60 @@ function createPolicyWindow(url: string) {
     policyWindows.delete(policyWin)
   })
   return policyWin
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function createLogWindow(content: string, title?: string) {
+  const logWin = new BrowserWindow({
+    width: 1100,
+    height: 800,
+    title: title || 'Run logs',
+    backgroundColor: '#0B0E14',
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  })
+  logWin.setMenuBarVisibility(false)
+  const safe = escapeHtml(content || '')
+  const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title || 'Run logs')}</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; background: #0B0E14; color: #E6EDF3; }
+      header { padding: 16px 20px; border-bottom: 1px solid #1f2630; background: #0F141C; }
+      h1 { font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase; margin: 0 0 6px; color: #b9c2cc; }
+      .sub { font-size: 12px; color: #b9c2cc; }
+      pre { margin: 0; padding: 16px 20px; white-space: pre-wrap; word-break: break-word; line-height: 1.5; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Run logs</h1>
+      <div class="sub">Full log output</div>
+    </header>
+    <pre>${safe}</pre>
+  </body>
+</html>`
+  logWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+  logWindows.add(logWin)
+  logWin.on('closed', () => {
+    logWindows.delete(logWin)
+  })
+  return logWin
 }
 
 ipcMain.handle('scraper:get-paths', (_event, outDir?: string) => {
@@ -290,6 +346,14 @@ ipcMain.handle('scraper:start', async (_event, options: ScraperStartOptions = {}
       sendToRenderer('scraper:error', { message: 'tracker_radar_index_not_found', path: trackerPath })
     }
   }
+  if (options.trackerDbIndex) {
+    const trackerDbPath = path.resolve(REPO_ROOT, options.trackerDbIndex)
+    if (fs.existsSync(trackerDbPath)) {
+      args.push('--trackerdb-index', trackerDbPath)
+    } else {
+      sendToRenderer('scraper:error', { message: 'trackerdb_index_not_found', path: trackerDbPath })
+    }
+  }
   if (options.runId) {
     args.push('--run-id', options.runId)
   }
@@ -353,6 +417,17 @@ ipcMain.handle('scraper:stop', async () => {
   if (!scraperProcess) return { ok: false, error: 'not_running' }
   scraperProcess.kill()
   return { ok: true }
+})
+
+ipcMain.handle('scraper:open-log-window', async (_event, payload?: { content?: string; title?: string }) => {
+  try {
+    const content = payload?.content ?? ''
+    const title = payload?.title
+    createLogWindow(content, title)
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, error: String(error) }
+  }
 })
 
 ipcMain.handle('scraper:open-policy-window', async (_event, url?: string) => {
