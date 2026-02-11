@@ -9,12 +9,15 @@ from typing import Any
 class SummaryBuilder:
     run_id: str
     total_sites: int
+    mapping_mode: str | None = None
     processed_sites: int = 0
     status_counts: Counter = field(default_factory=Counter)
     third_party_total: int = 0
     third_party_mapped: int = 0
     third_party_unmapped: int = 0
     third_party_no_policy_url: int = 0
+    third_party_radar_mapped: int = 0
+    third_party_trackerdb_mapped: int = 0
     category_counts: Counter = field(default_factory=Counter)
     entity_counts: Counter = field(default_factory=Counter)
     entity_prevalence_sum: dict[str, float] = field(default_factory=dict)
@@ -47,6 +50,11 @@ class SummaryBuilder:
 
             if mapped and not tp.get("policy_url"):
                 self.third_party_no_policy_url += 1
+
+            if tp.get("tracker_radar_source_domain_file"):
+                self.third_party_radar_mapped += 1
+            elif tp.get("trackerdb_source_pattern_file") or tp.get("trackerdb_source_org_file"):
+                self.third_party_trackerdb_mapped += 1
 
             for cat in tp.get("categories") or []:
                 if isinstance(cat, str) and cat.strip():
@@ -105,6 +113,12 @@ class SummaryBuilder:
                 "mapped": self.third_party_mapped,
                 "unmapped": self.third_party_unmapped,
                 "no_policy_url": self.third_party_no_policy_url,
+            },
+            "mapping": {
+                "mode": self.mapping_mode,
+                "radar_mapped": self.third_party_radar_mapped,
+                "trackerdb_mapped": self.third_party_trackerdb_mapped,
+                "unmapped": max(0, self.third_party_total - self.third_party_radar_mapped - self.third_party_trackerdb_mapped),
             },
             "categories": categories,
             "entities": entities,

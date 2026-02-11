@@ -16,6 +16,7 @@ import aiohttp
 from .crawl4ai_client import Crawl4AIClient
 from .crawler import process_site
 from .tracker_radar import TrackerRadarIndex
+from .trackerdb import TrackerDbIndex
 from .tranco_list import get_tranco_sites
 from .utils.io import append_jsonl, write_json
 from .utils.logging import log, warn
@@ -41,7 +42,7 @@ _CRUX_ENDPOINT = "https://chromeuxreport.googleapis.com/v1/records:queryRecord"
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="privacy-dataset",
-        description="Build Step-1 dataset: websites -> first-party privacy policy + observed third-party tools (+ their policies via Tracker Radar).",
+        description="Build Step-1 dataset: websites -> first-party privacy policy + observed third-party tools (+ their policies via Tracker Radar / Ghostery TrackerDB).",
     )
     src = p.add_argument_group("Input source")
     src.add_argument("--input", type=str, default=None, help="Path to a newline-delimited list of domains/URLs. If omitted, uses Tranco.")
@@ -55,6 +56,9 @@ def _parse_args() -> argparse.Namespace:
 
     radar = p.add_argument_group("Tracker Radar")
     radar.add_argument("--tracker-radar-index", type=str, default=None, help="Path to tracker_radar_index.json (built with scripts/build_tracker_radar_index.py).")
+
+    gdb = p.add_argument_group("Ghostery TrackerDB")
+    gdb.add_argument("--trackerdb-index", type=str, default=None, help="Path to trackerdb_index.json (built with scripts/build_trackerdb_index.py).")
 
     crawl = p.add_argument_group("Crawling")
     crawl.add_argument("--browser", type=str, default="chromium", choices=["chromium", "firefox", "webkit"], help="Browser engine (Playwright).")
@@ -72,7 +76,7 @@ def _parse_args() -> argparse.Namespace:
     scale.add_argument("--third-party-engine", type=str, default="crawl4ai", choices=["crawl4ai", "openwpm"], help="How to collect third-party requests: crawl4ai (default) or openwpm (heavier).")
     scale.add_argument("--no-third-party-policy-fetch", action="store_true", help="Do not fetch third-party policy texts (still records mappings).")
     scale.add_argument("--third-party-policy-max", type=int, default=30, help="Max number of third-party policies to fetch per site (ranked by prevalence when available).")
-    scale.add_argument("--exclude-same-entity", action="store_true", help="Exclude third-party domains owned by the same entity as the first-party site (requires Tracker Radar).")
+    scale.add_argument("--exclude-same-entity", action="store_true", help="Exclude third-party domains owned by the same entity as the first-party site (requires a mapping index).")
 
     crux = p.add_argument_group("CrUX filter (browsable origins)")
     crux.add_argument("--crux-filter", action="store_true", help="Filter input sites to those present in the Chrome UX Report dataset.")
@@ -388,6 +392,16 @@ async def _crux_filter_sites(args: argparse.Namespace, sites: list[dict[str, Any
 async def _run(args: argparse.Namespace) -> None:
     run_id = args.run_id or str(uuid.uuid4())
     tracker_radar = TrackerRadarIndex(args.tracker_radar_index) if args.tracker_radar_index else None
+    trackerdb = TrackerDbIndex(args.trackerdb_index) if args.trackerdb_index else None
+    mapping_mode = (
+        "mixed"
+        if tracker_radar and trackerdb
+        else "trackerdb"
+        if trackerdb
+        else "radar"
+        if tracker_radar
+        else "none"
+    )
     sites = _load_input_sites(args)
 
     def emit_event(evt: dict[str, Any]) -> None:
@@ -437,15 +451,15 @@ async def _run(args: argparse.Namespace) -> None:
     if args.third_party_engine == "openwpm" and args.concurrency > 1:
         warn("OpenWPM engine is blocking/heavy; forcing --concurrency 1.")
         args.concurrency = 1
-    if not tracker_radar:
-        warn("No --tracker-radar-index provided. Third-party domains will be collected but not mapped to entities/policies.")
-    if args.exclude_same_entity and not tracker_radar:
-        warn("--exclude-same-entity set but no --tracker-radar-index provided. Option will have no effect.")
+    if not tracker_radar and not trackerdb:
+        warn("No mapping index provided. Third-party domains will be collected but not mapped to entities/policies.")
+    if args.exclude_same_entity and not (tracker_radar or trackerdb):
+        warn("--exclude-same-entity set but no mapping index provided. Option will have no effect.")
 
     sem = asyncio.Semaphore(max(1, int(args.concurrency)))
     write_lock = asyncio.Lock()
 
-    summary = SummaryBuilder(run_id=run_id, total_sites=len(sites))
+    summary = SummaryBuilder(run_id=run_id, total_sites=len(sites), mapping_mode=mapping_mode)
     explorer_records: list[dict[str, Any]] = []
     explorer_is_jsonl = bool(args.explorer_out and str(args.explorer_out).endswith(".jsonl"))
 
@@ -493,6 +507,7 @@ async def _run(args: argparse.Namespace) -> None:
                         rank=rank,
                         artifacts_dir=args.artifacts_dir,
                         tracker_radar=tracker_radar,
+                        trackerdb=trackerdb,
                         fetch_third_party_policies=not args.no_third_party_policy_fetch,
                         third_party_policy_max=args.third_party_policy_max,
                         third_party_engine=args.third_party_engine,
@@ -539,6 +554,12 @@ async def _run(args: argparse.Namespace) -> None:
                     if args.state_file:
                         write_json(args.state_file, {
                             "run_id": run_id,
+                            "mapping": {
+                                "mode": mapping_mode,
+                                "radar_mapped": summary.third_party_radar_mapped,
+                                "trackerdb_mapped": summary.third_party_trackerdb_mapped,
+                                "unmapped": max(0, summary.third_party_total - summary.third_party_radar_mapped - summary.third_party_trackerdb_mapped),
+                            },
                             "total_sites": len(sites),
                             "processed_sites": summary.processed_sites,
                             "status_counts": dict(summary.status_counts),

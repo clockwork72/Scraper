@@ -22,7 +22,8 @@ from .policy_finder import (
     LinkCandidate,
 )
 from .third_party import third_parties_from_network_logs
-from .tracker_radar import TrackerRadarIndex
+from .tracker_radar import TrackerRadarIndex, TrackerRadarEntry
+from .trackerdb import TrackerDbIndex, TrackerDbEntry
 from .openwpm_engine import run_openwpm_for_third_parties
 from .utils.etld import etld1
 from .utils.logging import log, warn
@@ -305,6 +306,7 @@ async def process_site(
     rank: int | None,
     artifacts_dir: str | Path,
     tracker_radar: TrackerRadarIndex | None = None,
+    trackerdb: TrackerDbIndex | None = None,
     fetch_third_party_policies: bool = True,
     third_party_policy_max: int = 30,
     third_party_engine: str = "crawl4ai",  # crawl4ai|openwpm
@@ -317,7 +319,7 @@ async def process_site(
     - Fetch homepage
     - Find and fetch best privacy policy
     - Extract third-party domains from network logs (Crawl4AI) or OpenWPM (optional)
-    - Map third parties via Tracker Radar (+ optionally fetch their policy texts)
+    - Map third parties via Tracker Radar / Ghostery TrackerDB (+ optionally fetch their policy texts)
     """
     started_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
     t_total = time.perf_counter()
@@ -445,24 +447,66 @@ async def process_site(
 
     third_party_etlds = obs.third_party_etld1s
 
+    def _merge_entries(radar_entry: TrackerRadarEntry | None, db_entry: TrackerDbEntry | None) -> dict[str, Any]:
+        # Mixed mode: prefer Tracker Radar if present; otherwise fall back to TrackerDB.
+        if radar_entry:
+            return {
+                "entity": radar_entry.entity,
+                "categories": list(radar_entry.categories or []),
+                "prevalence": radar_entry.prevalence,
+                "policy_url": radar_entry.policy_url,
+                "tracker_radar_source_domain_file": radar_entry.source_domain_file,
+                "trackerdb_source_pattern_file": None,
+                "trackerdb_source_org_file": None,
+            }
+        if db_entry:
+            return {
+                "entity": db_entry.entity,
+                "categories": list(db_entry.categories or []),
+                "prevalence": db_entry.prevalence,
+                "policy_url": db_entry.policy_url,
+                "tracker_radar_source_domain_file": None,
+                "trackerdb_source_pattern_file": db_entry.source_pattern_file,
+                "trackerdb_source_org_file": db_entry.source_org_file,
+            }
+        return {
+            "entity": None,
+            "categories": [],
+            "prevalence": None,
+            "policy_url": None,
+            "tracker_radar_source_domain_file": None,
+            "trackerdb_source_pattern_file": None,
+            "trackerdb_source_org_file": None,
+        }
+
     site_entity: str | None = None
+    site_etld = etld1(home.url) or ""
     if tracker_radar:
-        site_entry = tracker_radar.lookup(etld1(home.url) or "")
+        site_entry = tracker_radar.lookup(site_etld)
         if site_entry and site_entry.entity:
             site_entity = site_entry.entity
+    if not site_entity and trackerdb:
+        site_entry_db = trackerdb.lookup(site_etld)
+        if site_entry_db and site_entry_db.entity:
+            site_entity = site_entry_db.entity
 
     third_party_records: list[dict[str, Any]] = []
     for tp in third_party_etlds:
-        entry = tracker_radar.lookup(tp) if tracker_radar else None
-        if exclude_same_entity and site_entity and entry and entry.entity == site_entity:
+        radar_entry = tracker_radar.lookup(tp) if tracker_radar else None
+        db_entry = trackerdb.lookup(tp) if trackerdb else None
+        merged = _merge_entries(radar_entry, db_entry)
+        tp_entity = merged.get("entity")
+        if exclude_same_entity and site_entity and tp_entity and tp_entity == site_entity:
             continue
         third_party_records.append({
             "third_party_etld1": tp,
-            "entity": (entry.entity if entry else None),
-            "categories": (entry.categories if entry else []),
-            "prevalence": (entry.prevalence if entry else None),
-            "policy_url": (entry.policy_url if entry else None),
-            "tracker_radar_source_domain_file": (entry.source_domain_file if entry else None),
+            "entity": merged.get("entity"),
+            "categories": merged.get("categories") or [],
+            "prevalence": merged.get("prevalence"),
+            "policy_url": merged.get("policy_url"),
+            "tracker_radar_source_domain_file": merged.get("tracker_radar_source_domain_file"),
+            "trackerdb_source_pattern_file": merged.get("trackerdb_source_pattern_file"),
+            "trackerdb_source_org_file": merged.get("trackerdb_source_org_file"),
         })
 
     # 4) Optional: fetch third-party policy texts (best-effort)
@@ -470,7 +514,7 @@ async def process_site(
         stage_callback("third_party_policy_fetch")
     t_tp_policy = time.perf_counter()
     third_party_policy_fetches: list[dict[str, Any]] = []
-    if fetch_third_party_policies and tracker_radar:
+    if fetch_third_party_policies and (tracker_radar or trackerdb):
         def sort_key(r: dict[str, Any]):
             p = r.get("prevalence")
             return (-(p if isinstance(p, (int, float)) else -1.0), r["third_party_etld1"])

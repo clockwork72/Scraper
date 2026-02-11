@@ -7,13 +7,15 @@ This repository builds a **Step‑1 privacy research dataset** and ships an **El
 **Scraper (Python)**
 - Website → first‑party privacy policy URL + extracted text
 - Website → observed third‑party domains (from network requests)
-- Third‑party domain → entity/category/policy URL (DuckDuckGo Tracker Radar)
+- Third‑party domain → entity/category/policy URL (DuckDuckGo Tracker Radar or Ghostery TrackerDB)
 - Third‑party policy URL → extracted policy text (best‑effort)
 
 **Dashboard (Electron + Vite)**
 - Launch the scraper with live progress + logs
 - Inspect results, entities, categories, and prevalence
 - Browse sites + policies via the Explorer
+- Run history and per‑run output folders
+- Mapping mode selection (Tracker Radar / TrackerDB / Mixed)
 - Clear results/artifacts from the database view
 
 **No LLMs / DeepSeek.** The pipeline is deterministic + heuristic filtering.
@@ -23,10 +25,11 @@ This repository builds a **Step‑1 privacy research dataset** and ships an **El
 ## Repository layout
 
 - `privacy_research_dataset/` — core scraper package
-- `scripts/` — helper scripts (Tracker Radar index, Tranco fetch)
+- `scripts/` — helper scripts (Tracker Radar/TrackerDB index, Tranco fetch)
 - `tracker-radar/` — DuckDuckGo Tracker Radar repo (clone here)
+- `trackerdb/` — Ghostery TrackerDB repo (clone here, optional)
 - `dashboard/` — Electron + Vite UI
-- `outputs/` — results JSONL, summary, explorer, artifacts
+- `outputs/` — per‑run outputs (`outputs/output_<runid>/`)
 
 ---
 
@@ -50,11 +53,19 @@ git clone https://github.com/duckduckgo/tracker-radar.git tracker-radar
 python scripts/build_tracker_radar_index.py --tracker-radar-dir tracker-radar --out tracker_radar_index.json
 ```
 
-### 3) Run a crawl
+### 3) Ghostery TrackerDB index (optional)
+
+```bash
+git clone https://github.com/ghostery/trackerdb trackerdb
+python scripts/build_trackerdb_index.py --trackerdb-dir trackerdb --out trackerdb_index.json
+```
+
+### 4) Run a crawl
 
 ```bash
 privacy-dataset --tranco-top 100 --tranco-date 2026-01-01 \
   --tracker-radar-index tracker_radar_index.json \
+  --trackerdb-index trackerdb_index.json \
   --out outputs/results.jsonl \
   --artifacts-dir outputs/artifacts
 ```
@@ -85,36 +96,44 @@ export PRIVACY_DATASET_PYTHON=/path/to/python
 
 ## Dashboard → Scraper integration
 
-The dashboard launches the scraper using these outputs:
+When launched from the dashboard, each run is stored under:
 
-- `outputs/results.jsonl` — raw results
-- `outputs/results.summary.json` — aggregated summary
-- `outputs/run_state.json` — live run counters
-- `outputs/explorer.jsonl` — explorer data
+```
+outputs/output_<runid>/
+```
+
+Each run folder contains:
+
+- `results.jsonl` — raw results
+- `results.summary.json` — aggregated summary (includes mapping mode + counts)
+- `run_state.json` — live run counters (includes mapping counters)
+- `explorer.jsonl` — explorer data
 
 These are produced when you run with:
 
 ```bash
 privacy-dataset \
   --emit-events \
-  --state-file outputs/run_state.json \
-  --summary-out outputs/results.summary.json \
-  --explorer-out outputs/explorer.jsonl \
-  --out outputs/results.jsonl \
-  --artifacts-dir outputs/artifacts
+  --state-file outputs/output_<runid>/run_state.json \
+  --summary-out outputs/output_<runid>/results.summary.json \
+  --explorer-out outputs/output_<runid>/explorer.jsonl \
+  --out outputs/output_<runid>/results.jsonl \
+  --artifacts-dir outputs/output_<runid>/artifacts
 ```
 
 The Electron app uses these files to power:
 - **Results tab** (summary + categories + entities)
 - **Explorer tab** (sites + policy links)
 - **Analytics tab** (run state)
+- **Database tab** (run history + load/delete runs)
 
 ---
 
 ## Scraper CLI options (important)
 
 - `--tranco-top N` / `--tranco-date YYYY-MM-DD` — reproducible Tranco list
-- `--tracker-radar-index` — enables entity/category mapping
+- `--tracker-radar-index` — enables entity/category mapping via Tracker Radar
+- `--trackerdb-index` — enables entity/category mapping via Ghostery TrackerDB (used as fallback if Tracker Radar misses)
 - `--third-party-engine crawl4ai|openwpm` — network collection
 - `--no-third-party-policy-fetch` — disable third‑party policy fetch
 
@@ -131,7 +150,7 @@ The Electron app uses these files to power:
 - `--crux-concurrency`, `--crux-timeout-ms`
 
 **Entity filtering**
-- `--exclude-same-entity` — exclude third‑party domains owned by same entity as first‑party (requires Tracker Radar)
+- `--exclude-same-entity` — exclude third‑party domains owned by same entity as first‑party (requires a mapping index)
 
 **Browsable-only (optional)**
 - `--prefilter-websites` — lightweight HTML check before crawl
@@ -145,10 +164,22 @@ Each line in `results.jsonl` contains:
 - `status`: `ok`, `policy_not_found`, `non_browsable`, `home_fetch_failed`, `exception`
 - `first_party_policy`: URL + score + length
 - `third_parties`: eTLD+1 + entity + categories + prevalence + policy_url
+- `third_parties`: may include `tracker_radar_source_domain_file` and `trackerdb_source_*` fields
 - timing fields: `home_fetch_ms`, `policy_fetch_ms`, `third_party_extract_ms`, `third_party_policy_fetch_ms`, `total_ms`
 - `run_id`, `started_at`, `ended_at`
 
-Artifacts live under `outputs/artifacts/<site>/`.
+Artifacts live under `outputs/output_<runid>/artifacts/<site>/`.
+
+---
+
+## Dashboard features (summary)
+
+- **Launcher**: Tranco Top‑N, CrUX filter, mapping mode (Radar / TrackerDB / Mixed), exclude same‑entity, start/stop run.
+- **Live progress**: step indicator, ETA, streaming logs, and “Open full log” in its own window.
+- **Results**: split site vs third‑party stats, tooltips, status bar legend, mapping mode + mixed counts.
+- **Explorer**: gallery view, search + status + minimum 3P filter, embedded policy viewer with “Open in window” fallback.
+- **Database**: run history table, load any run, show folder size, clear/delete outputs.
+- **Settings**: themes (dark, VS Code red, academia).
 
 ---
 
