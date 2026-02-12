@@ -6,6 +6,7 @@ import inspect
 from urllib.parse import urlparse
 from typing import Any, Optional
 
+from .text_extract import extract_main_text_from_html
 from .utils.logging import warn
 
 @dataclass
@@ -228,17 +229,14 @@ class Crawl4AIClient:
                 if isinstance(ev, dict) and ev.get("event_type") in keep_types and isinstance(ev.get("url"), str)
             ]
 
-        text = _extract_text(res)
-
-        # If no markdown text, fall back to cleaned_html
-        if (not text or not text.strip()) and cleaned_html:
-            try:
-                from bs4 import BeautifulSoup
-                soup = BeautifulSoup(cleaned_html, "lxml")
-                text = "\n".join([ln.strip() for ln in soup.get_text("\n").splitlines() if ln.strip()])
-            except Exception as e:
-                warn(f"Failed to extract text via BeautifulSoup for {url}: {e}")
-                text = None
+        # Text extraction (job 2): Trafilatura-first from cleaned/raw HTML.
+        text = extract_main_text_from_html(cleaned_html or raw_html, source_url=url)
+        if not text or not text.strip():
+            # Fallback to Crawl4AI markdown fields if extraction yields nothing.
+            text = _extract_text(res)
+        if not text or not text.strip():
+            warn(f"Text extraction returned empty output for {url}")
+            text = None
 
         return Crawl4AIResult(
             url=getattr(res, "url", url) or url,

@@ -19,6 +19,7 @@ dependencies = [
   "requests>=2.31.0",
   "tqdm>=4.66.4",
   "python-dateutil>=2.9.0.post0",
+  "trafilatura>=1.12.0",
 ]
 
 [project.optional-dependencies]

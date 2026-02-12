@@ -26,3 +26,26 @@ def test_vocab_dir_loads():
     vocab = load_vocab("consistency_advanced/ontology/vocab")
     assert any(term.uri == "basis:consent" for term in vocab.legal_bases)
     assert any(term.uri == "recipient:partner" for term in vocab.recipients)
+
+
+def test_section_tree_simple():
+    from consistency_advanced.ingest.segment import build_section_tree
+
+    text = """
+# Privacy Policy
+
+## Data We Collect
+Details here.
+
+## How We Use Data
+More details.
+
+Table of contents
+- Privacy Policy
+- Data We Collect
+- How We Use Data
+"""
+    sections = build_section_tree(text)
+    paths = [s.section_path for s in sections]
+    assert "Privacy Policy" in paths[0]
+    assert any("Data We Collect" in p for p in paths)
