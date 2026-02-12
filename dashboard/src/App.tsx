@@ -4,6 +4,7 @@ import { PageShell } from './components/layout/PageShell'
 import { LauncherView } from './components/launcher/LauncherView'
 import { ResultsView } from './components/results/ResultsView'
 import { ExplorerView } from './components/explorer/ExplorerView'
+import { ConsistencyCheckerView } from './components/consistency/ConsistencyCheckerView'
 import { AnalyticsView } from './components/analytics/AnalyticsView'
 import { DatabaseView } from './components/database/DatabaseView'
 import { SettingsView } from './components/settings/SettingsView'
@@ -358,6 +359,7 @@ function App() {
     launcher: 'Scraper Launcher',
     results: 'Results',
     explorer: 'Explorer',
+    consistency: 'Consistency checker',
     analytics: 'Analytics',
     database: 'Database',
     settings: 'Settings',
@@ -367,6 +369,7 @@ function App() {
     launcher: 'Minimal control surface for the dataset pipeline.',
     results: 'Outcome overview of the latest scrape.',
     explorer: 'Browse scraped sites and their policy links.',
+    consistency: 'Compare first‑party and third‑party policy texts.',
     analytics: 'Operational metrics and crawl performance.',
     database: 'Artifact storage and dataset exports.',
     settings: 'Theme and default crawl preferences.',
@@ -412,6 +415,7 @@ function App() {
             topN={topN}
             metrics={resultsMetrics}
             summary={summaryData}
+            sites={explorerData || undefined}
             useCrux={useCrux}
             postCruxCount={postCruxCount}
             mappingMode={mappingMode}
@@ -419,6 +423,9 @@ function App() {
         )}
         {activeNav === 'explorer' && (
           <ExplorerView hasRun={hasRun} progress={progress} sites={explorerData || undefined} />
+        )}
+        {activeNav === 'consistency' && (
+          <ConsistencyCheckerView hasRun={hasRun} sites={explorerData || undefined} outDir={outDir} />
         )}
         {activeNav === 'analytics' && <AnalyticsView summary={summaryData} state={stateData} />}
         {activeNav === 'database' && (

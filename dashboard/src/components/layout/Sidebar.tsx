@@ -40,6 +40,18 @@ const navItems: { id: NavId; label: string; icon: JSX.Element }[] = [
     ),
   },
   {
+    id: 'consistency',
+    label: 'Consistency',
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <rect x="3" y="5" width="8" height="14" rx="1.5" />
+        <rect x="13" y="5" width="8" height="14" rx="1.5" />
+        <path d="M9 9h6" />
+        <path d="M9 15h6" />
+      </svg>
+    ),
+  },
+  {
     id: 'analytics',
     label: 'Chart',
     icon: (

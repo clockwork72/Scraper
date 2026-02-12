@@ -22,6 +22,7 @@ declare global {
       readSummary: (path?: string) => Promise<{ ok: boolean; data?: any; error?: string; path?: string }>
       readState: (path?: string) => Promise<{ ok: boolean; data?: any; error?: string; path?: string }>
       readExplorer: (path?: string, limit?: number) => Promise<{ ok: boolean; data?: any; error?: string; path?: string }>
+      readArtifactText: (options?: { outDir?: string; relativePath?: string }) => Promise<{ ok: boolean; data?: string; error?: string; path?: string }>
       clearResults: (options?: { includeArtifacts?: boolean; outDir?: string }) => Promise<{ ok: boolean; error?: string; removed?: string[]; errors?: string[] }>
       deleteOutput: (outDir?: string) => Promise<{ ok: boolean; error?: string; path?: string }>
       getFolderSize: (outDir?: string) => Promise<{ ok: boolean; error?: string; bytes?: number; path?: string }>

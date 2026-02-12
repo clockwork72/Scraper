@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react'
 import { baseResults } from '../../data/results'
 import { ResultsMetrics } from '../../utils/results'
 
@@ -7,6 +8,7 @@ type ResultsViewProps = {
   topN: string
   metrics: ResultsMetrics
   summary?: any
+  sites?: any[]
   useCrux?: boolean
   postCruxCount?: number | null
   mappingMode?: 'radar' | 'trackerdb' | 'mixed'
@@ -18,6 +20,7 @@ export function ResultsView({
   topN,
   metrics,
   summary,
+  sites,
   useCrux,
   postCruxCount,
   mappingMode,

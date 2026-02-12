@@ -188,6 +188,27 @@ ipcMain.handle("scraper:read-explorer", async (_event, filePath, limit) => {
     return { ok: false, error: String(error) };
   }
 });
+ipcMain.handle("scraper:read-artifact-text", async (_event, options) => {
+  try {
+    const relativePath = options == null ? void 0 : options.relativePath;
+    if (!relativePath) {
+      return { ok: false, error: "missing_relative_path" };
+    }
+    const root = (options == null ? void 0 : options.outDir) ? path.resolve(REPO_ROOT, options.outDir) : defaultPaths().outDir;
+    const fullPath = path.resolve(root, relativePath);
+    const normalizedRoot = root.endsWith(path.sep) ? root : `${root}${path.sep}`;
+    if (fullPath !== root && !fullPath.startsWith(normalizedRoot)) {
+      return { ok: false, error: "path_outside_root" };
+    }
+    if (!fs.existsSync(fullPath)) {
+      return { ok: false, error: "not_found", path: fullPath };
+    }
+    const raw = await fs.promises.readFile(fullPath, "utf-8");
+    return { ok: true, data: raw, path: fullPath };
+  } catch (error) {
+    return { ok: false, error: String(error) };
+  }
+});
 ipcMain.handle("scraper:folder-size", async (_event, outDir) => {
   try {
     const target = outDir ? path.resolve(REPO_ROOT, outDir) : defaultPaths().outDir;

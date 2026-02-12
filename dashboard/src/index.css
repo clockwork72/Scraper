@@ -83,6 +83,11 @@
     color: #ffffff;
 }
 
+/* Academia: ensure policy text reads as dark ink */
+:root[data-theme="academia"] .consistency-text {
+    color: #1F2428;
+}
+
 * {
     box-sizing: border-box;
 }

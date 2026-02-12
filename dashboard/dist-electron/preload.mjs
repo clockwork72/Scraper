@@ -25,6 +25,7 @@ electron.contextBridge.exposeInMainWorld("scraper", {
   readSummary: (path) => electron.ipcRenderer.invoke("scraper:read-summary", path),
   readState: (path) => electron.ipcRenderer.invoke("scraper:read-state", path),
   readExplorer: (path, limit) => electron.ipcRenderer.invoke("scraper:read-explorer", path, limit),
+  readArtifactText: (options) => electron.ipcRenderer.invoke("scraper:read-artifact-text", options),
   clearResults: (options) => electron.ipcRenderer.invoke("scraper:clear-results", options),
   deleteOutput: (outDir) => electron.ipcRenderer.invoke("scraper:delete-output", outDir),
   getFolderSize: (outDir) => electron.ipcRenderer.invoke("scraper:folder-size", outDir),

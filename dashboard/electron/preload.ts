@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld('scraper', {
   readSummary: (path?: string) => ipcRenderer.invoke('scraper:read-summary', path),
   readState: (path?: string) => ipcRenderer.invoke('scraper:read-state', path),
   readExplorer: (path?: string, limit?: number) => ipcRenderer.invoke('scraper:read-explorer', path, limit),
+  readArtifactText: (options?: { outDir?: string; relativePath?: string }) =>
+    ipcRenderer.invoke('scraper:read-artifact-text', options),
   clearResults: (options?: { includeArtifacts?: boolean; outDir?: string }) =>
     ipcRenderer.invoke('scraper:clear-results', options),
   deleteOutput: (outDir?: string) => ipcRenderer.invoke('scraper:delete-output', outDir),
